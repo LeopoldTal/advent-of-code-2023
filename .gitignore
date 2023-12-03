@@ -1,0 +1,10 @@
+# My inputs
+./input_me.txt
+
+# Build
+target/
+*.temp
+
+# System
+.DS_Store
+Thumbs.db
