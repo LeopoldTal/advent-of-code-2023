@@ -6,6 +6,12 @@ pub struct Span {
 	pub end_col: usize,   // exclusive
 }
 
+/// Checks whether a point is adjacent to a span.
+#[must_use]
+fn is_adjacent((row, col): (usize, usize), span: &Span) -> bool {
+	row + 1 >= span.row && row <= span.row + 1 && col + 1 >= span.start_col && col <= span.end_col
+}
+
 /// A 2D char array.
 #[derive(Debug, Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Board {
@@ -139,6 +145,31 @@ impl Board {
 			.map(|span| self.read_number(&span))
 			.collect()
 	}
+
+	/// Finds asterisks adjacent to exactly two numbers.
+	#[must_use]
+	pub fn get_gears(&self) -> Vec<u32> {
+		let spans = self.find_numbers();
+		let mut gears = vec![];
+
+		for row in 0..self.nb_rows {
+			for col in 0..self.nb_cols {
+				if self.tiles[row][col] == '*' {
+					let adjacent: Vec<&Span> = spans
+						.iter()
+						.filter(|span| is_adjacent((row, col), span))
+						.collect();
+					if adjacent.len() == 2 {
+						let first = self.read_number(adjacent[0]);
+						let second = self.read_number(adjacent[1]);
+						gears.push(first * second);
+					}
+				}
+			}
+		}
+
+		gears
+	}
 }
 
 #[cfg(test)]
@@ -146,6 +177,22 @@ mod test {
 	use super::*;
 
 	const SAMPLE_INPUT: &str = include_str!("../input_sample.txt");
+
+	#[test]
+	fn test_is_adjacent() {
+		let yes_adjacent = Span {
+			row: 0,
+			start_col: 1,
+			end_col: 3,
+		};
+		let not_adjacent = Span {
+			row: 1,
+			start_col: 2,
+			end_col: 3,
+		};
+		assert!(is_adjacent((1, 0), &yes_adjacent));
+		assert!(!is_adjacent((1, 0), &not_adjacent));
+	}
 
 	#[test]
 	fn test_to_board() {
@@ -248,5 +295,12 @@ mod test {
 		let board = parse(&SAMPLE_INPUT);
 		let expected = vec![467, 35, 633, 617, 592, 755, 664, 598];
 		assert_eq!(board.get_part_numbers(), expected);
+	}
+
+	#[test]
+	fn test_get_gears() {
+		let board = parse(&SAMPLE_INPUT);
+		let expected = vec![16345, 451490];
+		assert_eq!(board.get_gears(), expected);
 	}
 }

@@ -8,6 +8,11 @@ fn sum_part_numbers(board: &Board) -> u32 {
 	board.get_part_numbers().into_iter().sum()
 }
 
+#[must_use]
+fn sum_gears(board: &Board) -> u32 {
+	board.get_gears().into_iter().sum()
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;
@@ -17,6 +22,7 @@ mod test {
 	fn test_sum_part_numbers() {
 		let board = parse(&SAMPLE_INPUT);
 		assert_eq!(sum_part_numbers(&board), 4361);
+		assert_eq!(sum_gears(&board), 467835);
 	}
 }
 
@@ -29,4 +35,5 @@ fn main() {
 	let board = parse(&input);
 
 	println!("Part numbers sum: {}", sum_part_numbers(&board));
+	println!("Gears sum: {}", sum_gears(&board));
 }
