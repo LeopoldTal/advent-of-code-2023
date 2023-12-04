@@ -1,6 +1,6 @@
-use nom::branch::alt;
 use nom::bytes::complete::tag;
-use nom::character::complete::{char, space0, u32};
+use nom::character::complete::{alpha1, char, space0, u32};
+use nom::error::{Error, ErrorKind};
 use nom::multi::{many1, separated_list1};
 use nom::IResult;
 
@@ -12,23 +12,20 @@ enum Colour {
 	Blue,
 }
 
-fn red(input: &str) -> IResult<&str, Colour> {
-	let (input, _) = tag("red")(input)?;
-	Ok((input, Colour::Red))
-}
-fn green(input: &str) -> IResult<&str, Colour> {
-	let (input, _) = tag("green")(input)?;
-	Ok((input, Colour::Green))
-}
-fn blue(input: &str) -> IResult<&str, Colour> {
-	let (input, _) = tag("blue")(input)?;
-	Ok((input, Colour::Blue))
-}
-
 /// Consumes a colour name
-/// FIXME: there's *got* to be a better way!
 fn colour(input: &str) -> IResult<&str, Colour> {
-	alt((red, green, blue))(input)
+	let (input, colour_name) = alpha1(input)?;
+	let colour = match colour_name {
+		"red" => Some(Colour::Red),
+		"green" => Some(Colour::Green),
+		"blue" => Some(Colour::Blue),
+		_ => None,
+	};
+	if let Some(colour) = colour {
+		Ok((input, colour))
+	} else {
+		Err(nom::Err::Error(Error::new(colour_name, ErrorKind::Alpha)))
+	}
 }
 
 /// Consumes a single revealed colour.
