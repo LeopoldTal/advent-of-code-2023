@@ -79,14 +79,14 @@ where
 	T: Copy,
 	T: Eq,
 {
-	let needle_index = haystack.iter().position(|&x| x == needle);
-	if let Some(needle_index) = needle_index {
-		let (before, after) = haystack.split_at(needle_index);
-		let after = &after[1..];
-		[before, &[replacement], after].concat()
-	} else {
-		haystack.to_vec()
+	let mut changed = haystack.to_vec();
+	for x in &mut changed {
+		if *x == needle {
+			*x = replacement;
+			break;
+		}
 	}
+	changed
 }
 
 #[cfg(test)]
