@@ -10,7 +10,6 @@ pub enum Instruction {
 /// Graph node.
 #[derive(Debug, Clone, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Node<'a> {
-	/// Those might have to become owned strings but it'll slap if I can just use refs.
 	pub label: &'a str,
 	pub left: &'a str,
 	pub right: &'a str,
@@ -40,18 +39,26 @@ impl<'a> Game<'a> {
 		}
 	}
 
-	/// Traverse until goal, cycling instructions. Returns the number of steps to reach the goal.
-	pub fn run(&self, start_label: &'a str, goal_label: &'a str) -> usize {
-		let instructions = self.instructions.iter().cycle().enumerate();
-		let mut here = start_label;
-		for (nb_steps, &instruction) in instructions {
-			here = self.step(here, instruction);
-			if here == goal_label {
-				return nb_steps + 1;
-			}
-		}
-		unreachable!()
+	/// Gets all node labels matching a predicate.
+	pub fn filter_labels(&self, pred: &LabelProp<'a>) -> Vec<&'a str> {
+		self.nodes
+			.keys()
+			.copied()
+			.filter(|&label| pred(label))
+			.collect()
 	}
+}
+
+/// Predicate applied to a node label.
+pub type LabelProp<'a> = Box<dyn Fn(&'a str) -> bool>;
+
+/// Return a predicate that tests for one exact label name.
+pub fn exact<'a>(needle: &'static str) -> LabelProp<'a> {
+	Box::new(move |label| label == needle)
+}
+/// Return a predicate that tests for a suffix.
+pub fn ends_with<'a>(needle: &'static str) -> LabelProp<'a> {
+	Box::new(move |label| label.ends_with(needle))
 }
 
 #[cfg(test)]
@@ -73,41 +80,5 @@ mod test {
 		let game = parse_full(SAMPLE_INPUT);
 		let label = game.step("CCC", Instruction::Right);
 		assert_eq!(label, "GGG");
-	}
-
-	#[test]
-	fn test_sample_one_step() {
-		let game = parse_full(SAMPLE_INPUT);
-		let nb_steps = game.run("BBB", "EEE");
-		assert_eq!(nb_steps, 1);
-	}
-
-	#[test]
-	fn test_sample_two_steps() {
-		let game = parse_full(
-			"LR
-
-one = (two, one)
-two = (one, three)
-three = (one, one)
-",
-		);
-		let nb_steps = game.run("one", "three");
-		assert_eq!(nb_steps, 2);
-	}
-
-	#[test]
-	fn test_sample_repeated() {
-		let game = parse_full(
-			"L
-
-one = (two, one)
-two = (three, one)
-three = (four, one)
-four = (one, one)
-",
-		);
-		let nb_steps = game.run("one", "four");
-		assert_eq!(nb_steps, 3);
 	}
 }

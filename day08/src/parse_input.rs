@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use nom::{
 	bytes::complete::tag,
-	character::complete::{alpha1, multispace0, one_of},
+	character::complete::{alphanumeric1, multispace0, one_of},
 	multi::many1,
 	IResult,
 };
@@ -29,11 +29,11 @@ fn instructions(input: &str) -> IResult<&str, Vec<Instruction>> {
 
 /// Consumes a labelled node.
 fn node(input: &str) -> IResult<&str, Node> {
-	let (input, label) = alpha1(input)?;
+	let (input, label) = alphanumeric1(input)?;
 	let (input, _) = tag(" = (")(input)?;
-	let (input, left) = alpha1(input)?;
+	let (input, left) = alphanumeric1(input)?;
 	let (input, _) = tag(", ")(input)?;
-	let (input, right) = alpha1(input)?;
+	let (input, right) = alphanumeric1(input)?;
 	let (input, _) = tag(")")(input)?;
 	let (input, _) = multispace0(input)?;
 	let node = Node::from(label, left, right);
