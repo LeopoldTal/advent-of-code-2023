@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::maze::{get_max_distance, Coords, Maze, Step, Tile};
 
@@ -11,7 +11,7 @@ pub fn colourise(s: &str, background: AnsiColour, foreground: AnsiColour) -> Str
 }
 
 /// Displays a maze with the given path highlighted.
-pub fn pretty_print(maze: &Maze, path: &[Step]) {
+pub fn pretty_print(maze: &Maze, path: &[Step], inside: &HashSet<Coords>) {
 	let max_distance = get_max_distance(path) + 1;
 	let path: HashMap<Coords, usize> = path
 		.iter()
@@ -23,7 +23,13 @@ pub fn pretty_print(maze: &Maze, path: &[Step]) {
 		for col in 0..maze.nb_cols {
 			print!(
 				"{}",
-				pretty_tile((row, col), maze.tiles[row][col], &path, max_distance)
+				pretty_tile(
+					(row, col),
+					maze.tiles[row][col],
+					&path,
+					max_distance,
+					inside
+				)
 			);
 		}
 		println!();
@@ -37,6 +43,7 @@ fn pretty_tile(
 	tile: Tile,
 	path: &HashMap<Coords, usize>,
 	max_distance: usize,
+	inside: &HashSet<Coords>,
 ) -> String {
 	let symbol = format!("{tile}");
 	if let Some(distance) = path.get(&coords) {
@@ -45,6 +52,8 @@ fn pretty_tile(
 		let foreground = colours[scaled_index];
 		let background = if tile == Tile::Bunny { 124 } else { 231 };
 		colourise(&symbol, background, foreground)
+	} else if inside.contains(&coords) {
+		colourise(&symbol, 0, 15)
 	} else {
 		colourise(&symbol, 255, 0)
 	}

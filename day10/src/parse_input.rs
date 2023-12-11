@@ -38,8 +38,7 @@ pub fn parse_full(input: &str) -> Maze {
 #[cfg(test)]
 mod test {
 	use super::*;
-	const SAMPLE_INPUT_SIMPLE_BARE: &str = include_str!("../input_sample_simple_bare.txt");
-	const SAMPLE_INPUT_COMPLEX_CROWDED: &str = include_str!("../input_sample_complex_crowded.txt");
+	use crate::samples::*;
 
 	#[test]
 	fn test_parse_simple() {

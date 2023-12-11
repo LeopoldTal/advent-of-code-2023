@@ -69,7 +69,7 @@ impl fmt::Display for Maze {
 }
 
 impl Maze {
-	/// Finds all tiles on the loop the bunny traces.
+	/// Finds all tiles on the loop the bunny traces, annotated with distance along the loop.
 	#[must_use]
 	pub fn get_loop(&self) -> Vec<Step> {
 		let coords = self.get_loop_coords();
@@ -79,6 +79,30 @@ impl Maze {
 			.enumerate()
 			.map(|(index, (row, col))| Step::from(row, col, index.min(loop_length - index)))
 			.collect()
+	}
+
+	/// Finds all tiles on the loop the bunny traces.
+	#[must_use]
+	pub fn get_loop_coords(&self) -> Vec<Coords> {
+		let bunny = self.get_bunny();
+
+		let mut steps = vec![bunny];
+		let mut visited = HashSet::from([bunny]);
+
+		let mut current = self.get_neighbours(bunny)[0];
+		loop {
+			steps.push(current);
+			visited.insert(current);
+			let next_step = self
+				.get_neighbours(current)
+				.into_iter()
+				.find(|neighbour| !visited.contains(neighbour));
+			if let Some(next_step) = next_step {
+				current = next_step;
+			} else {
+				return steps;
+			}
+		}
 	}
 
 	/// Finds all tiles that connect to the given tile. Pipes must line up at both ends.
@@ -161,29 +185,6 @@ impl Maze {
 		}
 		panic!("No bunny!")
 	}
-
-	#[must_use]
-	fn get_loop_coords(&self) -> Vec<Coords> {
-		let bunny = self.get_bunny();
-
-		let mut steps = vec![bunny];
-		let mut visited = HashSet::from([bunny]);
-
-		let mut current = self.get_neighbours(bunny)[0];
-		loop {
-			steps.push(current);
-			visited.insert(current);
-			let next_step = self
-				.get_neighbours(current)
-				.into_iter()
-				.find(|neighbour| !visited.contains(neighbour));
-			if let Some(next_step) = next_step {
-				current = next_step;
-			} else {
-				return steps;
-			}
-		}
-	}
 }
 
 /// Gets the maximum distance on a path.
@@ -197,10 +198,7 @@ pub fn get_max_distance(path: &[Step]) -> usize {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::parse_input::parse_full;
-
-	const SAMPLE_INPUT_SIMPLE_BARE: &str = include_str!("../input_sample_simple_bare.txt");
-	const SAMPLE_INPUT_COMPLEX_CROWDED: &str = include_str!("../input_sample_complex_crowded.txt");
+	use crate::{parse_input::parse_full, samples::*};
 
 	mod test_neighbours {
 		use super::*;
