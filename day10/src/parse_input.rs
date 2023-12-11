@@ -44,11 +44,11 @@ mod test {
 	fn test_parse_simple() {
 		let maze = parse_full(SAMPLE_INPUT_SIMPLE_BARE);
 		let expected = "
-     
- ♞━┓ 
- ┃ ┃ 
- ┗━┛ 
-     
+          
+  ♞♞━━━┓  
+   ┃   ┃  
+   ┗━━━┛  
+          
 ";
 		assert_eq!(format!("{}", maze), expected);
 	}
@@ -57,11 +57,11 @@ mod test {
 	fn test_parse_complex() {
 		let maze = parse_full(SAMPLE_INPUT_COMPLEX_CROWDED);
 		let expected = "
-┓━┏┓━
- ┏┛┃┓
-♞┛┗┗┓
-┃┏━━┛
-┗┛ ┗┛
+━┓━━ ┏━┓━━
+   ┏━┛ ┃━┓
+♞♞━┛ ┗ ┗━┓
+ ┃ ┏━━━━━┛
+ ┗━┛   ┗━┛
 ";
 		assert_eq!(format!("{}", maze), expected);
 	}

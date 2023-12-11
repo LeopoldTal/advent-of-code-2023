@@ -19,14 +19,14 @@ pub enum Tile {
 impl fmt::Display for Tile {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		let pretty = match self {
-			Tile::Wall => " ",
-			Tile::NorthSouth => "┃",
-			Tile::EastWest => "━",
-			Tile::NorthWest => "┛",
-			Tile::NorthEast => "┗",
-			Tile::SouthWest => "┓",
-			Tile::SouthEast => "┏",
-			Tile::Bunny => "♞",
+			Tile::Wall => "  ",
+			Tile::NorthSouth => " ┃",
+			Tile::EastWest => "━━",
+			Tile::NorthWest => "━┛",
+			Tile::NorthEast => " ┗",
+			Tile::SouthWest => "━┓",
+			Tile::SouthEast => " ┏",
+			Tile::Bunny => "♞♞",
 		};
 		write!(f, "{pretty}")
 	}
