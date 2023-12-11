@@ -1,37 +1,15 @@
 use std::io::{self, Read};
 
 use parse_input::parse_full;
-use starfield::Coords;
 
 mod parse_input;
 mod starfield;
 
-/// 2D taxicab distance.
 #[must_use]
-fn d2((x1, y1): Coords, (x2, y2): Coords) -> usize {
-	#[allow(clippy::cast_possible_truncation)]
-	let distance = x1.abs_diff(x2) + y1.abs_diff(y2);
-	distance
-}
-
-/// Lists distances between unique pairs of galaxies in the expanded space.
-#[must_use]
-fn get_all_distances(points: &[Coords]) -> Vec<usize> {
-	let mut distances = Vec::new();
-	for (start_index, &start) in points.iter().enumerate() {
-		for &end in points.iter().skip(start_index + 1) {
-			distances.push(d2(start, end));
-		}
-	}
-	distances
-}
-
-#[must_use]
-fn get_sum_distances(input: &str, expand_factor: usize) -> usize {
+fn get_sum_distances(input: &str, expand_factor: usize) -> i64 {
 	let starfield = parse_full(input);
 	let expanded = starfield.expand(expand_factor);
-	let expanded: Vec<Coords> = expanded.into_iter().collect();
-	get_all_distances(&expanded).into_iter().sum()
+	expanded.get_sum_distances()
 }
 
 #[cfg(test)]

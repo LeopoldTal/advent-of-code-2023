@@ -1,67 +1,70 @@
-use std::collections::HashSet;
+use std::collections::BTreeMap;
 
-pub type Coords = (usize, usize);
+pub type DimCount = BTreeMap<usize, usize>;
 
-/// List of galaxy positions.
+/// List of sorted galaxy positions.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Starfield {
-	pub galaxies: HashSet<Coords>,
-	occupied_rows: Vec<usize>,
-	occupied_cols: Vec<usize>,
+	pub nb_galaxies: usize,
+	pub nb_per_row: DimCount,
+	pub nb_per_col: DimCount,
 }
 
 impl Starfield {
-	/// Constructs from a list of coords.
+	/// Adjusts distances so unoccupied rows and columns are twice as wide.
 	#[must_use]
-	pub fn from(galaxies: HashSet<Coords>) -> Self {
-		let occupied_rows: Vec<usize> = to_unique(galaxies.iter().map(|&(row, _)| row));
-		let occupied_cols: Vec<usize> = to_unique(galaxies.iter().map(|&(_, col)| col));
-
-		Self {
-			galaxies,
-			occupied_rows,
-			occupied_cols,
+	pub fn expand(&self, expand_factor: usize) -> Starfield {
+		let rows = expand_axis_distances(&self.nb_per_row, expand_factor);
+		let cols = expand_axis_distances(&self.nb_per_col, expand_factor);
+		Starfield {
+			nb_galaxies: self.nb_galaxies,
+			nb_per_row: rows,
+			nb_per_col: cols,
 		}
 	}
 
-	/// Adjusts distances so unoccupied rows and columns are twice as wide.
+	/// Adds together all distances between pairs of galaxies.
 	#[must_use]
-	pub fn expand(&self, expand_factor: usize) -> HashSet<Coords> {
-		self.galaxies
-			.iter()
-			.map(|&(row, col)| {
-				(
-					expand_distance(row, expand_factor, &self.occupied_rows),
-					expand_distance(col, expand_factor, &self.occupied_cols),
-				)
-			})
-			.collect()
+	pub fn get_sum_distances(&self) -> i64 {
+		get_sum_axis_distances(self.nb_galaxies, &self.nb_per_row)
+			+ get_sum_axis_distances(self.nb_galaxies, &self.nb_per_col)
 	}
 }
 
-#[cfg(test)]
-mod test_from {
-	use super::*;
+/// Expands space along one dimension.
+#[must_use]
+fn expand_axis_distances(coords: &DimCount, expand_factor: usize) -> DimCount {
+	coords
+		.iter()
+		.enumerate()
+		.map(|(occupied_index, (&coord, &nb_galaxies))| {
+			(
+				expand_distance(coord, occupied_index, expand_factor),
+				nb_galaxies,
+			)
+		})
+		.collect()
+}
 
-	#[test]
-	fn test_dense() {
-		let galaxies = HashSet::from([(0, 0), (0, 1), (1, 0), (1, 1)]);
-		let starfield = Starfield::from(galaxies);
-		let expected_rows = vec![0, 1];
-		let expected_cols = vec![0, 1];
-		assert_eq!(starfield.occupied_rows, expected_rows);
-		assert_eq!(starfield.occupied_cols, expected_cols);
-	}
+/// Expands space between `0` and `index`.
+#[must_use]
+fn expand_distance(coord: usize, occupied_index: usize, expand_factor: usize) -> usize {
+	let count_unoccupied = coord - occupied_index;
+	coord + (expand_factor - 1) * count_unoccupied
+}
 
-	#[test]
-	fn test_gaps() {
-		let galaxies = HashSet::from([(0, 0), (23, 42), (24, 1)]);
-		let starfield = Starfield::from(galaxies);
-		let expected_rows = vec![0, 23, 24];
-		let expected_cols = vec![0, 1, 42];
-		assert_eq!(starfield.occupied_rows, expected_rows);
-		assert_eq!(starfield.occupied_cols, expected_cols);
+/// Adds together all distances between pairs of galaxies along one dimension.
+#[must_use]
+pub fn get_sum_axis_distances(nb_galaxies: usize, coords: &DimCount) -> i64 {
+	let mut total = 0;
+	let mut weight = 1 - i64::try_from(nb_galaxies).expect("Too many galaxies");
+	for (&coord, &nb_at_coord) in coords {
+		for _ in 0..nb_at_coord {
+			total += weight * i64::try_from(coord).expect("Grid too big");
+			weight += 2;
+		}
 	}
+	total
 }
 
 #[cfg(test)]
@@ -70,140 +73,241 @@ mod test_expand {
 
 	#[test]
 	fn test_trivial() {
-		let galaxies = HashSet::from([]);
-		let starfield = Starfield::from(galaxies);
-		let expected = HashSet::from([]);
+		let starfield = Starfield {
+			nb_galaxies: 0,
+			nb_per_row: BTreeMap::from([]),
+			nb_per_col: BTreeMap::from([]),
+		};
+		let expected = Starfield {
+			nb_galaxies: 0,
+			nb_per_row: BTreeMap::from([]),
+			nb_per_col: BTreeMap::from([]),
+		};
 		assert_eq!(starfield.expand(2), expected);
 	}
 
 	#[test]
 	fn test_all_occupied() {
-		let galaxies = HashSet::from([(0, 0), (0, 1), (1, 0), (1, 1)]);
-		let starfield = Starfield::from(galaxies);
-		let expected = HashSet::from([(0, 0), (0, 1), (1, 0), (1, 1)]);
+		let starfield = Starfield {
+			nb_galaxies: 4,
+			nb_per_row: BTreeMap::from([(0, 2), (1, 2)]),
+			nb_per_col: BTreeMap::from([(0, 2), (1, 2)]),
+		};
+		let expected = Starfield {
+			nb_galaxies: 4,
+			nb_per_row: BTreeMap::from([(0, 2), (1, 2)]),
+			nb_per_col: BTreeMap::from([(0, 2), (1, 2)]),
+		};
 		assert_eq!(starfield.expand(2), expected);
 	}
 
 	#[test]
 	fn test_row_cols_occupied() {
-		let galaxies = HashSet::from([(0, 0), (1, 1)]);
-		let starfield = Starfield::from(galaxies);
-		let expected = HashSet::from([(0, 0), (1, 1)]);
+		let starfield = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 1), (1, 1)]),
+			nb_per_col: BTreeMap::from([(0, 1), (1, 1)]),
+		};
+		let expected = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 1), (1, 1)]),
+			nb_per_col: BTreeMap::from([(0, 1), (1, 1)]),
+		};
 		assert_eq!(starfield.expand(2), expected);
 	}
 
 	#[test]
 	fn test_empty_row() {
-		let galaxies = HashSet::from([(0, 0), (2, 0)]);
-		let starfield = Starfield::from(galaxies);
-		let expected = HashSet::from([(0, 0), (3, 0)]);
+		let starfield = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 1), (2, 1)]),
+			nb_per_col: BTreeMap::from([(0, 2)]),
+		};
+		let expected = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 1), (3, 1)]),
+			nb_per_col: BTreeMap::from([(0, 2)]),
+		};
 		assert_eq!(starfield.expand(2), expected);
 	}
 
 	#[test]
 	fn test_empty_col() {
-		let galaxies = HashSet::from([(0, 0), (0, 2)]);
-		let starfield = Starfield::from(galaxies);
-		let expected = HashSet::from([(0, 0), (0, 3)]);
+		let starfield = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 2)]),
+			nb_per_col: BTreeMap::from([(0, 1), (2, 1)]),
+		};
+		let expected = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 2)]),
+			nb_per_col: BTreeMap::from([(0, 1), (3, 1)]),
+		};
 		assert_eq!(starfield.expand(2), expected);
 	}
 
 	#[test]
 	fn test_empty_row_col() {
-		let galaxies = HashSet::from([(0, 0), (2, 2)]);
-		let starfield = Starfield::from(galaxies);
-		let expected = HashSet::from([(0, 0), (3, 3)]);
+		let starfield = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 1), (2, 1)]),
+			nb_per_col: BTreeMap::from([(0, 1), (2, 1)]),
+		};
+		let expected = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 1), (3, 1)]),
+			nb_per_col: BTreeMap::from([(0, 1), (3, 1)]),
+		};
 		assert_eq!(starfield.expand(2), expected);
 	}
 
 	#[test]
 	fn test_long_gap() {
-		let galaxies = HashSet::from([(0, 0), (11, 0)]);
-		let starfield = Starfield::from(galaxies);
-		let expected = HashSet::from([(0, 0), (21, 0)]);
+		let starfield = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 2)]),
+			nb_per_col: BTreeMap::from([(0, 1), (11, 1)]),
+		};
+		let expected = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 2)]),
+			nb_per_col: BTreeMap::from([(0, 1), (21, 1)]),
+		};
 		assert_eq!(starfield.expand(2), expected);
 	}
 
 	#[test]
 	fn test_multiple() {
-		let galaxies = HashSet::from([(0, 0), (3, 0), (4, 0), (6, 0)]);
-		let starfield = Starfield::from(galaxies);
+		let starfield = Starfield {
+			nb_galaxies: 4,
+			nb_per_row: BTreeMap::from([(0, 1), (3, 1), (4, 1), (6, 1)]),
+			nb_per_col: BTreeMap::from([(0, 4)]),
+		};
 		// 0 1 2 3 4 5 6
 		// *     * *   *
 		// 0 12345 6 789
-		let expected = HashSet::from([(0, 0), (5, 0), (6, 0), (9, 0)]);
+		let expected = Starfield {
+			nb_galaxies: 4,
+			nb_per_row: BTreeMap::from([(0, 1), (5, 1), (6, 1), (9, 1)]),
+			nb_per_col: BTreeMap::from([(0, 4)]),
+		};
 		assert_eq!(starfield.expand(2), expected);
 	}
 
 	#[test]
 	fn test_big_factor() {
-		let galaxies = HashSet::from([(0, 0), (2, 0)]);
-		let starfield = Starfield::from(galaxies);
-		let expected = HashSet::from([(0, 0), (101, 0)]);
+		let starfield = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 2)]),
+			nb_per_col: BTreeMap::from([(0, 1), (2, 1)]),
+		};
+		let expected = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 2)]),
+			nb_per_col: BTreeMap::from([(0, 1), (101, 1)]),
+		};
 		assert_eq!(starfield.expand(100), expected);
 	}
 }
 
-/// Collects values into a sorted, deduped vec.
-fn to_unique(indices: impl Iterator<Item = usize>) -> Vec<usize> {
-	let unique: HashSet<usize> = indices.collect();
-	let mut collected: Vec<usize> = unique.into_iter().collect();
-	collected.sort_unstable();
-	collected
-}
-
-/// Counts occupied rows and columns before `end` exclusive.
-/// Assumes `occupied` is sorted.
-fn count_occupied_before(end: usize, occupied: &[usize]) -> usize {
-	occupied.partition_point(|&x| x <= end)
-}
-
-/// Expands space between `0` and `index`.
-fn expand_distance(index: usize, expand_factor: usize, occupied: &[usize]) -> usize {
-	let count_unoccupied = index + 1 - count_occupied_before(index, occupied);
-	index + (expand_factor - 1) * count_unoccupied
-}
-
 #[cfg(test)]
-mod test_count_occupied_before {
+mod test_get_sum_distances {
 	use super::*;
 
 	#[test]
-	fn test_all_empty() {
-		let count = count_occupied_before(4, &[]);
-		assert_eq!(count, 0);
+	fn test_trivial() {
+		let starfield = Starfield {
+			nb_galaxies: 0,
+			nb_per_row: BTreeMap::from([]),
+			nb_per_col: BTreeMap::from([]),
+		};
+		assert_eq!(starfield.get_sum_distances(), 0);
 	}
 
 	#[test]
-	fn test_dense() {
-		let count = count_occupied_before(1, &[0, 1]);
-		assert_eq!(count, 2);
+	fn test_all_occupied() {
+		let starfield = Starfield {
+			nb_galaxies: 4,
+			nb_per_row: BTreeMap::from([(0, 2), (1, 2)]),
+			nb_per_col: BTreeMap::from([(0, 2), (1, 2)]),
+		};
+		//  01
+		// 0**
+		// 1**
+		assert_eq!(starfield.get_sum_distances(), 1 + 1 + 2 + 1 + 2 + 1);
 	}
 
 	#[test]
-	fn test_endpoints_only() {
-		let count = count_occupied_before(4, &[0, 4]);
-		assert_eq!(count, 2);
+	fn test_row_cols_occupied() {
+		let starfield = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 1), (1, 1)]),
+			nb_per_col: BTreeMap::from([(0, 1), (1, 1)]),
+		};
+		//  01
+		// 0*.
+		// 1.*
+		assert_eq!(starfield.get_sum_distances(), 2);
 	}
 
 	#[test]
-	fn test_between() {
-		let occupied = &[0, 1, 2, 3, 4, 5];
-		let count = count_occupied_before(4, occupied);
-		assert_eq!(count, 5);
+	fn test_empty_row() {
+		let starfield = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 1), (2, 1)]),
+			nb_per_col: BTreeMap::from([(0, 2)]),
+		};
+		// 012
+		// *.*
+		assert_eq!(starfield.get_sum_distances(), 2);
 	}
 
 	#[test]
-	fn test_before_start() {
-		let occupied = &[4, 5, 7];
-		let count = count_occupied_before(2, occupied);
-		assert_eq!(count, 0);
+	fn test_empty_col() {
+		let starfield = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 2)]),
+			nb_per_col: BTreeMap::from([(0, 1), (2, 1)]),
+		};
+		assert_eq!(starfield.get_sum_distances(), 2);
 	}
 
 	#[test]
-	fn test_past_end() {
-		let occupied = &[0, 1, 4, 5, 7];
-		let count = count_occupied_before(10, occupied);
-		assert_eq!(count, 5);
+	fn test_empty_row_col() {
+		let starfield = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 1), (2, 1)]),
+			nb_per_col: BTreeMap::from([(0, 1), (2, 1)]),
+		};
+		//  012
+		// 0*..
+		// 1...
+		// 2..*
+		assert_eq!(starfield.get_sum_distances(), 4);
+	}
+
+	#[test]
+	fn test_long_gap() {
+		let starfield = Starfield {
+			nb_galaxies: 2,
+			nb_per_row: BTreeMap::from([(0, 2)]),
+			nb_per_col: BTreeMap::from([(0, 1), (11, 1)]),
+		};
+		// 012345678901
+		// *..........*
+		assert_eq!(starfield.get_sum_distances(), 11);
+	}
+
+	#[test]
+	fn test_zigzag() {
+		let starfield = Starfield {
+			nb_galaxies: 3,
+			nb_per_row: BTreeMap::from([(0, 2), (1, 1)]),
+			nb_per_col: BTreeMap::from([(0, 1), (1, 1), (2, 1)]),
+		};
+		//  012
+		// 0*.*
+		// 1.*.
+		assert_eq!(starfield.get_sum_distances(), 6);
 	}
 }
